@@ -9,6 +9,7 @@ This repository contains the header files and shared library for libevogen, and 
 This library uses the following third-party shared libraries:
    Library | License owner | URL |
  |---------|---------|--------|
+ | libevogen |  Viktor Milkevych |   |
  | libimf, libintlc, libiomp5, libirng, libsvml |  Intel | https://www.intel.com/content/www/us/en/developer/articles/license/end-user-license-agreement.html  |
  | libplinkio |  Matias Frånberg | https://github.com/mfranberg/libplinkio.git |
 
