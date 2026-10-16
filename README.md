@@ -59,9 +59,11 @@ Additions for wrapper-building packages:
 
 The artifact content is committed in this repository under
 `artifacts/libevogen/` and bound in `Artifacts.toml` by its
-`git-tree-sha1`. Pkg resolves such an artifact directly from the
-package's own git repository - no download URL and no public release
-needed, so it works for private repositories too.
+`git-tree-sha1`. Pkg never installs such an artifact into the depot: it
+silently skips bindings without a download section, so the platform
+wrapper's `find_artifact_dir()` falls back to the copy committed in the
+package's own git clone. No download URL and no public release needed,
+so it works for private repositories too.
 
 It contains:
 
@@ -105,10 +107,12 @@ Pkg.add(url = "https://github.com/BgroveP/libevogen_jll")
 # or, for development: Pkg.develop(path = "libevogen_jll")
 ```
 
-Pkg downloads the artifact automatically the first time the package is
-used, on any machine, with no hardcoded paths anywhere. (The package must
-be installed through git - Pkg resolves the artifact from the repository,
-which requires the repository's git metadata.)
+No manual step is needed on any machine: the JLL resolves the binaries
+from the `artifacts/libevogen/` tree committed in its own git clone, and
+prefers the depot artifact when one was installed (e.g. by
+`tools/install_artifact.jl`). The package must be installed through git
+(or otherwise come with its `artifacts/libevogen/` directory), because
+the fallback reads that directory.
 
 ## Using the wrapper from a Julia package (e.g. Evogen.jl)
 

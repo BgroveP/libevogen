@@ -6,7 +6,28 @@
 # comment there for why this JLL needs it).
 export libevogen, libplinkio, libevogen_wrapper, lib_dir, include_dir
 
-JLLWrappers.@generate_wrapper_header("libevogen")
+# Equivalent of JLLWrappers.@generate_wrapper_header("libevogen") with a
+# fallback. The Artifacts.toml entry for libevogen has no download
+# section (the binaries are committed in this repository instead), so
+# Pkg silently skips it and a fresh machine never gets the artifact in
+# its depot. Fall back to the copy committed next to this source file;
+# the depot artifact keeps precedence when it was installed (e.g. via
+# tools/install_artifact.jl).
+function find_artifact_dir()
+    try
+        return @artifact_str("libevogen")
+    catch
+        committed = normpath(joinpath(@__DIR__, "..", "..", "artifacts", "libevogen"))
+        isdir(committed) || rethrow()
+        return committed
+    end
+end
+eager_mode() = nothing
+if ccall(:jl_generating_output, Cint, ()) == 1
+    Base.precompile(find_artifact_dir, ())
+    Base.precompile(eager_mode, ())
+end
+
 JLLWrappers.@declare_library_product(libevogen, "libevogen.so")
 JLLWrappers.@declare_library_product(libplinkio, "libplinkio.so")
 JLLWrappers.@declare_library_product(libevogen_wrapper, "libevogen_wrapper.so")
@@ -41,7 +62,7 @@ function __init__()
     JLLWrappers.@init_library_product(
         libevogen,
         "lib/libevogen.so",
-        RTLD_LAZY | RTLD_GLOBAL,
+        RTLD_LAZY | Libdl.RTLD_GLOBAL,
     )
 
     # The libcxxwrap wrapper is NOT dlopen'ed here: it has undefined
