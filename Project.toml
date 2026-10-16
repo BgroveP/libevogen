@@ -1,0 +1,23 @@
+name = "libevogen_jll"
+uuid = "923945fe-9270-4730-950a-f5510da5f31c"
+version = "0.1.0"
+
+[deps]
+Artifacts = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
+JLLWrappers = "692b3bcd-3c85-4b1f-b108-f13ce0eb3210"
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+Preferences = "21216c6a-2e73-6563-6e65-726566657250"
+
+[compat]
+Artifacts = "< 0.0.1, 1"
+JLLWrappers = "1.7"
+Libdl = "< 0.0.1, 1"
+Preferences = "< 0.0.1, 1"
+julia = "1.10"
+
+[extras]
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "Libdl"]

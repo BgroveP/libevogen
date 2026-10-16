@@ -1,121 +1,201 @@
-# libevogen
+# libevogen_jll
 
-**I am not the original author.** All rights belong to the original creators.
+Julia JLL package wrapping the prebuilt `libevogen` shared library, its
+runtime dependencies, the evogen C++ headers, and a prebuilt libcxxwrap
+wrapper (`libevogen_wrapper.so`) that Julia packages can load directly
+with [CxxWrap](https://github.com/JuliaInterop/CxxWrap.jl).
 
-## Description
-This repository contains the header files and shared library for libevogen, and the dependencies for libevogen. The libevogen shared object was developed for the EVOGEN and EVOLM packages, and it contains functions for simulating genetic populations. 
+The package follows the standard JLL anatomy
+([docs.binarybuilder.org/stable/jll/](https://docs.binarybuilder.org/stable/jll/)):
+an `Artifacts.toml` binding a `libevogen` artifact (linux x86_64, glibc),
+a `baremodule` main file generated via `JLLWrappers` macros, and a
+platform wrapper in `src/wrappers/`. The only supported platform is
+`x86_64-linux-gnu`; on other platforms the package loads fine,
+`is_available()` returns `false` and the library variables stay unset.
 
-## LICENSE overview for dependencies
-This library uses the following third-party shared libraries:
-   Library | License owner | URL |
- |---------|---------|--------|
- | libevogen |  Viktor Milkevych |   |
- | libimf, libintlc, libiomp5, libirng, libsvml |  Intel | https://www.intel.com/content/www/us/en/developer/articles/license/end-user-license-agreement.html  |
- | libplinkio |  Matias Frånberg | https://github.com/mfranberg/libplinkio.git |
+```
+libevogen_jll/
+├── Project.toml            # deps: JLLWrappers, Libdl, Artifacts, Preferences
+├── Artifacts.toml          # [[libevogen]] binding (git-tree-sha1, no download)
+├── artifacts/
+│   └── libevogen/          # the artifact itself, committed in-repo
+│       ├── lib/            # .so files (incl. libevogen_wrapper.so)
+│       └── include/        # evogen C++ headers
+├── lib/, include/          # pristine upstream binaries/headers (rebuild inputs)
+├── .gitignore
+├── src/
+│   ├── libevogen_jll.jl           # main file: platform dispatch
+│   ├── JLinterface.cpp            # wrapper source (compiled into the artifact)
+│   └── wrappers/
+│       └── x86_64-linux-gnu.jl     # products + library loading
+├── test/runtests.jl
+└── tools/                  # maintainer build scripts, not needed at runtime
+    ├── rebuild_libs.sh            # stage patched lib/ + include/
+    ├── build_wrapper.jl           # compile libevogen_wrapper.so
+    ├── install_artifact.jl        # publish in-repo artifact + bind + install
+    ├── fetch_mkl_compat.sh        # refresh tools/mkl_compat/ build headers
+    └── mkl_compat/                # vendored netlib LAPACKE/CBLAS headers
+```
 
+## Exports and API
 
-## The license for Intel libraries
-Intel Simplified Software License (Version October 2022)
-Use and Redistribution. You may use and redistribute the software, which is
-provided in binary form only, (the “Software”), without modification, provided the
-following conditions are met:
-* Redistributions must reproduce the above copyright notice and these terms of use
-in the Software and in the documentation and/or other materials provided with
-the distribution.
-* Neither the name of Intel nor the names of its suppliers may be used to endorse
-or promote products derived from this Software without specific prior written
-permission.
-* No reverse engineering, decompilation, or disassembly of the Software is
-permitted, nor any modification or alteration of the Software or its operation
-at any time, including during execution.
-No other licenses. Except as provided in the preceding section, Intel grants no
-licenses or other rights by implication, estoppel or otherwise to, patent,
-copyright, trademark, trade name, service mark or other intellectual property
-licenses or rights of Intel.
-Third party software. “Third Party Software” means the files (if any) listed in
-the “third-party-software.txt” or other similarly-named text file that may be
-included with the Software. Third Party Software, even if included with the
-distribution of the Software, may be governed by separate license terms, including
-without limitation, third party license terms, open source software notices and
-terms, and/or other Intel software license terms. These separate license terms
-solely govern Your use of the Third Party Software.
-DISCLAIMER. THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT ARE
-DISCLAIMED. THIS SOFTWARE IS NOT INTENDED FOR USE IN SYSTEMS OR APPLICATIONS WHERE
-FAILURE OF THE SOFTWARE MAY CAUSE PERSONAL INJURY OR DEATH AND YOU AGREE THAT YOU
-ARE FULLY RESPONSIBLE FOR ANY CLAIMS, COSTS, DAMAGES, EXPENSES, AND ATTORNEYS’
-FEES ARISING OUT OF ANY SUCH USE, EVEN IF ANY CLAIM ALLEGES THAT INTEL WAS
-NEGLIGENT REGARDING THE DESIGN OR MANUFACTURE OF THE SOFTWARE.
-LIMITATION OF LIABILITY. IN NO EVENT WILL INTEL BE LIABLE FOR ANY DIRECT,
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-POSSIBILITY OF SUCH DAMAGE.
-No support. Intel may make changes to the Software, at any time without notice,
-and is not obligated to support, update or provide training for the Software.
-Termination. Your right to use the Software is terminated in the event of your
-breach of this license.
-Feedback. Should you provide Intel with comments, modifications, corrections,
-enhancements or other input (“Feedback”) related to the Software, Intel will be
-free to use, disclose, reproduce, license or otherwise distribute or exploit the
-Feedback in its sole discretion without any obligations or restrictions of any
-kind, including without limitation, intellectual property rights or licensing
-obligations.
-Compliance with laws. You agree to comply with all relevant laws and regulations
-governing your use, transfer, import or export (or prohibition thereof) of the
-Software.
-Governing law. All disputes will be governed by the laws of the United States of
-America and the State of Delaware without reference to conflict of law principles
-and subject to the exclusive jurisdiction of the state or federal courts sitting
-in the State of Delaware, and each party agrees that it submits to the personal
-jurisdiction and venue of those courts and waives any objections. THE UNITED
-NATIONS CONVENTION ON CONTRACTS FOR THE INTERNATIONAL SALE OF GOODS (1980) IS
-SPECIFICALLY EXCLUDED AND WILL NOT APPLY TO THE SOFTWARE.
+Standard JLL surface:
 
-## The license for plinkio (copied from github repository)
-The libplinkio software library is distributed under the following terms:
+- `libevogen`: absolute path of `libevogen.so` (usable in `ccall`).
+- `libplinkio`: absolute path of `libplinkio.so`.
+- `libevogen_wrapper`: absolute path of `libevogen_wrapper.so`, the
+  prebuilt libcxxwrap wrapper to pass to `CxxWrap.@wrapmodule`.
+- `is_available()`: `true` iff the current platform is supported.
+- Unexported, as in every JLL: `artifact_dir`, `PATH`, `LIBPATH`,
+  `get_libevogen_path()`, `libevogen_handle`, `libplinkio_handle`,
+  `get_libevogen_wrapper_path()`, `dev_jll()`.
 
-Copyright (c) 2012-2013, Matias Frånberg
-All rights reserved.
+Additions for wrapper-building packages:
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
+- `lib_dir()`: the artifact's `lib/` directory.
+- `include_dir()`: the artifact's `include/` directory (evogen C++ headers).
 
-* Redistributions of source code must retain the above copyright
-  notice, this list of conditions and the following disclaimer.
+## The artifact
 
-* Redistributions in binary form must reproduce the above copyright
-  notice, this list of conditions and the following disclaimer in the
-  documentation and/or other materials provided with the distribution.
+The artifact content is committed in this repository under
+`artifacts/libevogen/` and bound in `Artifacts.toml` by its
+`git-tree-sha1`. Pkg resolves such an artifact directly from the
+package's own git repository - no download URL and no public release
+needed, so it works for private repositories too.
 
-* Neither the name of Mattias Frånberg nor the
-  names of its contributors may be used to endorse or promote products
-  derived from this software without specific prior written permission.
+It contains:
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE FOR ANY
-DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+- `lib/` - `libevogen.so` and its dependencies (the Intel oneAPI runtime
+  libraries `libimf`, `libintlc.so.5`, `libiomp5`, `libirng`, `libsvml`,
+  and `libplinkio`), plus `libevogen_wrapper.so`;
+- `include/` - the evogen C++ headers.
 
-===============================================================================
+`libevogen.so` and `libplinkio.so` are built without a SONAME and without
+an rpath, so out of the box they only find their sibling libraries via
+`LD_LIBRARY_PATH` or oneAPI env vars. The artifact ships them patched with
+a `$ORIGIN` runpath and a matching SONAME (see `tools/rebuild_libs.sh`),
+so they resolve their siblings wherever they are installed and register
+under their names for NEEDED lookup. The JLL `__init__` additionally
+preloads the Intel runtimes with `RTLD_GLOBAL`, so symbol resolution never
+depends on the environment - no oneAPI `setvars.sh` needed.
 
-The libplinkio software contains code written by third parties. Such software
-will either have its own individual LICENSE/COPYING file in the directory in
-which it appears, or have the license specified in the source files. This file
-will describe the copyrights, license, and restrictions which apply to that code.
+MKL is *not* bundled: `libevogen.so` has MKL statically linked inside it.
+The wrapper is compiled against the vendored reference LAPACKE/CBLAS
+declarations in `tools/mkl_compat/` (build-time only) and linked against
+`MKL_jll`'s `libmkl_rt.so` with `--as-needed`; the methods bound by the
+current wrapper have no BLAS/LAPACK references, so the linker drops
+`libmkl_rt` and consumers need nothing beyond this artifact. If future
+wrapper bindings reach the cblas/LAPACKE code paths, add `MKL_jll` as a
+dependency and preload `libmkl_rt` in `__init__` (see the comment in
+`tools/build_wrapper.jl`).
 
-The following pieces of software have additional or alternate copyrights,
-licenses, and/or restrictions:
+`libevogen_wrapper.so` is deliberately **not** preloaded by the JLL: it
+has undefined references to `libcxxwrap_julia` symbols, which only resolve
+once the consumer (CxxWrap) has loaded `libcxxwrap_julia`. The JLL exports
+its path and the consumer dlopens it.
 
-Directory/File              License
-libs/cmockery               Apache License, Version 2.0
-src/plinkio/utarray.h       Revised BSD License
+## Installing
+
+The artifact lives in this repository, so installation is just adding
+the package (works while the repository is private):
+
+```julia
+using Pkg
+Pkg.add(url = "https://github.com/BgroveP/libevogen_jll")
+# or, for development: Pkg.develop(path = "libevogen_jll")
+```
+
+Pkg downloads the artifact automatically the first time the package is
+used, on any machine, with no hardcoded paths anywhere. (The package must
+be installed through git - Pkg resolves the artifact from the repository,
+which requires the repository's git metadata.)
+
+## Using the wrapper from a Julia package (e.g. Evogen.jl)
+
+```julia
+module MyPackage
+
+using CxxWrap          # loads libcxxwrap_julia first
+using libevogen_jll    # loads the artifact; __init__ preloads libevogen
+
+@wrapmodule(() -> libevogen_jll.libevogen_wrapper)
+
+function __init__()
+    @initcxx
+end
+
+end
+```
+
+`CxxWrap` must be loaded before `@wrapmodule` is expanded so that the
+wrapper's `libcxxwrap_julia` symbols resolve.
+
+### ABI pinning
+
+`libevogen_wrapper.so` is built against the headers of one
+`libcxxwrap_julia_jll` version (currently 0.14.x) and one Julia version
+family (currently 1.13). Consuming packages must pin compatible versions
+in their `[compat]`:
+
+```toml
+[compat]
+CxxWrap = "0.17"
+libcxxwrap_julia_jll = "0.14"
+julia = "1.13"
+```
+
+Bumping these requires rebuilding the wrapper: see the next section.
+
+## Rebuilding the artifact (maintainer)
+
+When new binaries of `libevogen.so` arrive, or when the wrapper must be
+rebuilt (libcxxwrap_julia_jll or Julia version bump), from the package
+root, on Linux:
+
+```sh
+tools/rebuild_libs.sh [source_root]      # default: lib/ + include/ in this repo
+julia --project=<env with libcxxwrap_julia_jll + MKL_jll> tools/build_wrapper.jl
+julia tools/install_artifact.jl          # publishes artifacts/libevogen/ + binds it
+git add Artifacts.toml && git commit
+```
+
+To pick up new upstream binaries, replace `lib/` and `include/` with the
+new release first (or pass its root as `source_root`). The repository is
+otherwise self-contained: the wrapper source `src/JLinterface.cpp` is
+vendored here.
+
+`rebuild_libs.sh` copies the pristine binaries and headers from `lib/`
+and `include/` into `artifact_staging/` and embeds the `$ORIGIN` rpath
+and SONAME into `libevogen.so` and `libplinkio.so` - with `patchelf` if
+installed, otherwise with a stdlib-only Python ELF patcher embedded in
+the script (no other bytes are touched). `build_wrapper.jl` compiles
+`src/JLinterface.cpp` against the staged headers, the
+libcxxwrap headers from `libcxxwrap_julia_jll`, the running Julia's
+headers, and the vendored reference LAPACKE/CBLAS declarations in
+`tools/mkl_compat/` (build-time only; see the MKL paragraph above).
+`install_artifact.jl` copies the staging tree to
+`artifacts/libevogen/`, `git add`s it, binds the staged git tree hash in
+`Artifacts.toml`, and installs the artifact into the local depot. None of
+these tools are needed at runtime.
+
+## Testing
+
+```sh
+julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+On x86_64 Linux: the artifact loads, all library products resolve, and a
+C++ symbol as well as the wrapper's `define_julia_module` entry point can
+be found via `dlsym`. On other platforms the artifact checks are skipped.
+
+## Licensing
+
+All rights to the original libraries belong to their creators; see
+the license overview in the [libevogen repository](https://github.com/BgroveP/libevogen)
+(`libevogen`: V. Milkevych; Intel runtime libraries: Intel EULA;
+`libplinkio`: M. Frånberg, BSD). The wrapper source (now
+`src/JLinterface.cpp` in this repository, originally
+`libevogen/src/JLinterface.cpp`) is by Bjarke Poulsen. The vendored headers
+in `tools/mkl_compat/` come from the netlib LAPACK/LAPACKE and CBLAS
+reference implementations (BSD-3) and the Debian `liblapacke-dev`
+package, and are used only to build the wrapper.

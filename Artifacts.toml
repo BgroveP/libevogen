@@ -1,0 +1,5 @@
+[[libevogen]]
+arch = "x86_64"
+git-tree-sha1 = "2edb26e8e0d7dd75bc5526b321894090ecabefce"
+libc = "glibc"
+os = "linux"
